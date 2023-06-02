@@ -2,16 +2,21 @@
 #include <stdlib.h>
 #include <time.h>
 
+void background_introduction(int *go_on);
+
 void game_begin();
-void each_day_begin(int *dollars_ptr, int *speed_ptr, int *price_ptr, int *booster_limit_ptr);
+
+void each_day_begin(int *dollars, int *speed, int *price);
+
+void map_system(int *dollars, int *booster_num);
 
 int main(){
 
     int dollars = 100, speed = 15, price = 30;
-    int *dollars_ptr = &dollars, *speed_ptr = &speed, *price_ptr = &price;
     int revenue = price * 180 / speed;
+
     //0 : speed booster, 1 : price booster, 2 : area booster
-    int booster_num[3] = {5, 5, 5};
+    int booster_num[3] = {0};
     int speed_upgrade_fee = 50, flavor_upgrade_fee = 100;
     int check_area;
     int flag = 1, go_on = 1;
@@ -21,18 +26,31 @@ int main(){
     int lotteryShow[100][100] = {0};
     int lotteryDigit[100][100] = {0};
     int lotteryReal[100][100] = {0};
+    int prize_type;
 
-    //while player does't choose to leave the game
-    while(go_on){
-        srand(time(NULL));
+    //background intorduction
+    background_introduction(&go_on);
 
-        //to define the value of booster limitation
-        //0 : speed booster, 1 : price booster, 2 : area booster
-        int booster_limit[3] = {random() % 11 + 5, random() % 11 + 5, random() % 11 + 5};
-        int *booster_limit_ptr = &booster_limit[0];
+    //set seed
+    time_t t;
+    srand(time(&t));
 
+    //to define the value of booster limitation
+    int booster_limit = rand() % 11 + 5;
+
+    // to record the booster order(n: the order)
+    int n = 0;
+    int booster_record[booster_limit];
+
+    if(go_on == 1){
         //game begin
         game_begin();
+
+        printf("You have %d slots for your boosters.\n", booster_limit);
+        printf("If your booster slots is filled.\nYou will lose the earlst booster you got!!!\n");
+    }
+    //while player does't choose to leave the game
+    while(go_on){
 
         //initialize the value of each day begin
         int earned_money = 0;
@@ -43,20 +61,16 @@ int main(){
         int tmpMaxDigit, tmpNowDigit;
         int tmpMaxDigitContent, tmpNowDigitContent;
         int selectRow, selectColumn;
+        int booster_total = 0;
         
-        each_day_begin(&dollars, &speed, &price, &booster_limit[0]);
         //when each day begin
-        //printf("Chop chop, It's dawn.\n");
-        //printf("You have %d dollars.\n", dollars);
-        //printf("You need %d minutes to make a hotdog.\n", speed);
-        //printf("The price of a hotdog is $%d.\n", price);
-        //printf("The slots for each booster is %d speed booster(s), %d price booster(s), %d area booster(s).\n", booster_limit[0], booster_limit[1], booster_limit[2]);
+        each_day_begin(&dollars, &speed, &price);
         
         //to limit the numbers of booster holding in hand
         for(int i = 0; i < 3; i++){
-            if(booster_num[i] > booster_limit[i])
-                booster_num[i] = booster_limit[i];
+            booster_total += booster_num[i];
         }
+
         printf("You have %d speed booster(s), %d price booster(s), %d area booster(s).\n", booster_num[0], booster_num[1], booster_num[2]);
         
         //boosters choosing section(open or close)
@@ -151,7 +165,7 @@ int main(){
         
         //summed up earned_money
         printf("Well done, you earn $%d today.\n", earned_money);
-
+        
         //checking section
         check_area = 0;
         while(check_area != 4 + booster_switch[2]){
@@ -191,7 +205,10 @@ int main(){
                 printf("You make %d hotdogs here!\n", area_result[2 * check_area]);
                 printf("You earn $%d!\n", area_result[2 * check_area + 1]);
             }
+
+            map_system(&dollars, booster_num);
         }
+        
 
         //continue or exit
         go_on = 0;
@@ -204,6 +221,7 @@ int main(){
             if(go_on != 1 && go_on != 2)
                 printf("Invalid input!!!\n");
         }
+
         if(go_on == 2)
             break;
 
@@ -212,6 +230,7 @@ int main(){
         lotteryFree++;
         flag = 1;
 
+        //lottery section
         while(flag){
             if(lotteryRemain == 0){
                 lotteryCost = 500;
@@ -242,6 +261,9 @@ int main(){
             }
 
             //printf the lottery table
+            //set seed
+            srand(time(NULL));
+            int prize_type = rand() % 9 + 1;
             for(int i = 0; i < lotterySize; i++){
                 printf("+");
                 for(int j = 0; j < lotterySize; j++){
@@ -276,6 +298,7 @@ int main(){
             printf("\n");
 
             //choosing lottery
+            printf("You have %d dollars.\n", dollars);
             printf("You can choose\n");
             printf("  [number on cell] to open (- $%d)\n", lotteryFree == 0 ? lotteryCost : 0);
             printf("  [0] to continue the game\n");
@@ -302,10 +325,13 @@ int main(){
                 lotteryFree--;
             }
 
+            //determine which prize player will get
             while(flag){
-                srand(time(NULL));
-                int prize_type = random() % 9 + 1;
-                printf("%d\n", prize_type);
+
+                                    //test//
+                             //printf("%d\n", prize_type);  
+                //printf("%d %d\n", booster_total, booster_limit);
+
                 lotteryReal[selectRow][selectColumn] = -1;
                 lotteryRemain--;
 
@@ -315,14 +341,57 @@ int main(){
                 }else if(prize_type == 2){
                     printf("You get an extra choice!\n");
                     lotteryFree++;
-                }else if(prize_type >= 7){
-                    printf("You get a booster!!\n");
-                    if(prize_type == 7)
+                }else if(prize_type >= 7 && booster_total < booster_limit){
+                    //if holding quantity of boosters do not exceed the limitation
+                    if(prize_type == 7){
+                        printf("You get a speed booster!!\n");
+                        booster_total++;
                         booster_num[0]++;
-                    else if(prize_type == 8)
+                        booster_record[n] = 1;
+                        n++;
+                    }else if(prize_type == 8){
+                        printf("You get a price booster!!\n");
+                        booster_total++;
                         booster_num[1]++;
-                    else if(prize_type == 9)
+                        booster_record[n] = 2;
+                        n++;
+                    }
+                    else if(prize_type == 9){
+                        printf("You get an area booster!!\n");
+                        booster_total++;
                         booster_num[2]++;
+                        booster_record[n] = 3;
+                        n++;
+                    }
+                }else if(prize_type >= 7 && booster_total == booster_limit){
+                    n = 0;
+                    //if holding quantity of boosters do not exceed the limitation
+                    printf("You have no slots!!!!\n");
+                    printf("The earliest booster you got will be replaced.\n");
+                    if(prize_type == 7){
+                        booster_num[0]++;
+                        printf("You get a speed booster.\n");
+                    }else if(prize_type == 8){
+                        booster_num[1]++;
+                        printf("You get a price booster.\n");
+                    }else if(prize_type == 9){
+                        booster_num[2]++;
+                        printf("You get an area booster.\n");
+                    }
+                    //remove the numbers of the earlist booster player got
+                    if(booster_record[0] == 1){
+                        booster_num[0]--;
+                    }else if(booster_record[0] == 2){
+                        booster_num[1]--;
+                    }else if(booster_record[0] == 3){
+                        booster_num[2]--;
+                    }
+
+                    //change the booster record order(remove first booster, left-shift all boosters order, and record new booster)
+                    for(int i = 0; i < booster_limit - 1; i++){
+                        booster_record[i] = booster_record[i + 1];
+                        booster_record[booster_limit - 1] = prize_type - 6;
+                    }
                 }else if(prize_type >= 3 && prize_type <= 6){
                     if(prize_type == 3){
                         selectRow = (selectRow - 1 + lotterySize) % lotterySize;
@@ -335,7 +404,7 @@ int main(){
                     }
                     
                     if(lotteryReal[selectRow][selectColumn] == -1){
-                        printf("bad Luck :(\n");
+                        printf("Bad Luck :(\n");
                         break;
                     }else{
                         printf("Another open on %d!\n", selectRow * lotterySize + selectColumn + 1);
@@ -349,24 +418,137 @@ int main(){
         }
     }
 
-
+    //end of the game
+    End:
     printf("We will miss you. Bye!\n");
 
 
     return 0;
 }
 
+
+
+//function part
+
+void background_introduction(int *go_on){
+    int action;
+    printf("Welcome to the food truck game!\n");
+    printf("In this game, you're a hotdodg stall.\n");
+    printf("Your dream is to become a professional ping-pong player.\n");
+    printf("You need to earn as more as money you can.\n");
+    printf("Press the number to continue:\n");
+    printf("  [1] Yeah, I'm ready\n");
+    printf("  [2] Maybe try it later\n");
+    printf("Enter your action: ");
+    scanf("%d", &action);
+    if(action == 2)
+        *go_on = 0;
+}
+
 void game_begin(){
     printf("Welcome, young boss!\n");
 }
 
-void each_day_begin(int *dollars_ptr, int *speed_ptr, int *price_ptr, int *booster_limit_ptr){
+void each_day_begin(int *dollars, int *speed, int *price){
     printf("Chop chop, It's dawn.\n");
-    printf("You have %d dollars.\n", *dollars_ptr);
-    printf("You need %d minutes to make a hotdog.\n", *speed_ptr);
-    printf("The price of a hotdog is $%d.\n", *price_ptr);
-    printf("The slots for each booster is %d speed booster(s), %d price booster(s), %d area booster(s).\n", *booster_limit_ptr, *booster_limit_ptr + 1, *booster_limit_ptr + 2);
+    printf("You have %d dollars.\n", *dollars);
+    printf("You need %d minutes to make a hotdog.\n", *speed);
+    printf("The price of a hotdog is $%d.\n", *price);
 }
 
+void map_system(int *dollars, int *booster_num){
+    srand(time(NULL));
+    int map[8][8];
+    int playerRow = 0, playerCol = 0;
+    int moneyRow = rand() % 7 + 1, moneyCol = rand() % 7 + 1;
+    int boosterRow = rand() % 7 + 1, boosterCol = rand() % 7 + 1;
+    int moving_fee = 25;
+    
+    //initialize all the array to 0
+    for(int i = 0; i < 8; i++){
+        for(int j = 0; j < 8; j++){
+            map[i][j] = 0;
+        }
+    }
+    map[0][0] = 1;
 
+    while(1){
+        int action;
+        map[moneyRow][moneyCol] = 2;
+        map[boosterRow][boosterCol] = 3;
+        map[playerRow][playerCol] = 1;
+        
+        for(int i = 0; i < 8; i++){
+            for(int j = 0; j < 8; j++){
+                if(map[i][j] == 1)
+                    printf("P ");
+                else if(map[i][j] == 2)
+                    printf("M ");
+                else if(map[i][j] == 3)
+                    printf("B ");
+                else if(map[i][j] == 0)
+                    printf(". ");
+            }
+            printf("\n");
+        }
 
+        //direction choosing
+        printf("You have %d dollars.\n", *dollars);
+        printf("You can choose:\n");
+        printf("  [1] Up    (- $%d)\n", moving_fee);
+        printf("  [2] Down  (- $%d)\n", moving_fee);
+        printf("  [3] Left  (- $%d)\n", moving_fee);
+        printf("  [4] Right (- $%d)\n", moving_fee);
+        printf("  [5] Exit\n");
+        printf("Enter the action: ");
+        scanf("%d", &action);
+
+        if(action >= 1 && action <= 4 && *dollars >= moving_fee){
+            *dollars -= moving_fee;
+        }
+        //determine whether player has available fee
+        if(*dollars < moving_fee){
+            printf("You have no money!!!\n");
+            break;
+        }
+
+        //moving...
+        if(action <= 4 && action >= 1 && ((playerRow > 0 || playerRow < 8) && (playerCol > 0 || playerCol < 8))){
+            map[playerRow][playerCol] = 0;
+            if(action == 1 && playerRow > 0){
+                playerRow -= 1;
+            }else if(action == 2 && playerRow < 7){
+                playerRow += 1;
+            }else if(action == 3 && playerCol > 0){
+                playerCol -= 1;
+            }else if(action == 4 && playerCol < 7){
+                playerCol += 1;
+            }
+            map[playerRow][playerCol] = 1;
+        }else if(action == 5){
+            break;
+        }else{
+            printf("Invalid input!!!!\n");
+        }
+
+        //if player reach money icon, win the money and create a new money icon.
+        if(playerRow == moneyRow && playerCol == moneyCol){
+            printf("Fortune, fortune! You get %d!\n", (playerRow + 1) * (playerCol + 1) * 10);
+            *dollars += (playerRow + 1) * (playerCol + 1) * 10;
+            map[moneyRow][moneyCol] = 0;
+            moneyRow = rand() % 8;
+            moneyCol = rand() % 8;
+            map[moneyRow][moneyCol] = 1;
+        }
+
+        //if player reach booster icon, get the booster and create a new booster icon
+        if(playerRow == boosterRow && playerCol == boosterCol){
+            printf("You got a random booster!!!\n");
+            booster_num[rand() % 3]++;
+            map[boosterRow][boosterCol] = 0;
+            boosterRow = rand() % 8;
+            boosterCol = rand() % 8;
+            map[boosterRow][boosterCol] = 2;
+        }
+    }
+}
